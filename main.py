@@ -1,5 +1,5 @@
 import networkx as nx
-import copy, math
+import math
 import enum
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -18,6 +18,7 @@ class Edge:
         right_plug.edge = self
         self.left_plug = left_plug
         self.right_plug = right_plug
+        self.id = random.randint(0, 100000000)
 
     def detach(self):
         self.left_plug.edge = None
@@ -60,22 +61,30 @@ class Location:
     def copy(self):
         return Location(self.x, self.y_start, self.y_end)
 
+    def id(self):
+        return self.x + 1 / (self.y_start + 1)
+
     def __repr__(self) -> str:
         return "({}, {}-{})".format(self.x, self.y_start, self.y_end)
 
 
 class Gate:
-    def __init__(self, location: Location, group_id, t: Type, dagger=False):
+    def __init__(self, location: Location, group_id, t: Type, id=None, dagger=False):
         self._location = location
         self.group_id = group_id
         self.type = t
-        self.id = random.randint(0, 1000000000)
+        if id is None:
+            id = random.randint(0, 1000000000)
+        self.id = id
         self.dagger = dagger
         self.plugs = {Direction.Left: self._left_plugs(),
                       Direction.Right: self._right_plugs()}
 
-    def copy(self, loc):
-        return Gate(loc, self.group_id, self.type, self.dagger)
+    def copy_to(self, loc):
+        return Gate(loc, self.group_id, self.type, dagger=self.dagger)
+
+    def copy(self):
+        return Gate(self.get_location().copy(), self.group_id, self.type, self.id, self.dagger)
 
     def get_location(self):
         return self._location.copy()
@@ -93,7 +102,7 @@ class Gate:
         return None
 
     def conjugate(self):
-        c = self.copy(self._location.copy())
+        c = self.copy_to(self._location.copy())
         c.dagger = not c.dagger
         return c
 
@@ -117,19 +126,50 @@ class Gate:
         dagger = ""
         if self.dagger:
             dagger = "†"
-        return "{}{}{}".format(self.type.value, self.group_id, dagger)
+        return "{}{}".format(self.type.value, dagger)
 
 
 class TensorNetwork:
     def __init__(self, mhalf, b_height, depth):
         self.mhalf = mhalf
-        self.node_map = {}
-        self.edges = []
         self.b_height = b_height
         self.depth = depth
+        self.node_map = {}
+        self.group_map = {}
+        self.edge_map = {}
+
+    def copy(self):
+        result = TensorNetwork(self.mhalf, self.b_height, self.depth)
+        for g in self.node_map.values():
+            result.add_node(g.copy())
+        for e in self.edge_map.values():
+            edge: Edge = e
+            lp_: Plug = edge.left_plug
+            rp_: Plug = edge.right_plug
+            lg: Gate = result.node_map[lp_.node_id]
+            rg: Gate = result.node_map[rp_.node_id]
+            lp, rp = None, None
+            for p in lg.get_right_plugs():
+                if p.j == lp_.j:
+                    lp = p
+                    break
+            for p in rg.get_left_plugs():
+                if p.j == rp_.j:
+                    rp = p
+            result.add_edge(lp, rp)
+        return result
 
     def add_node(self, gate: Gate):
         self.node_map[gate.id] = gate
+        if gate.type != Type.UNITARY:
+            return
+        if gate.group_id not in self.group_map:
+            self.group_map[gate.group_id] = []
+        self.group_map[gate.group_id].append(gate)
+
+    def add_edge(self, lp: Plug, rp: Plug):
+        edge = Edge(lp, rp)
+        self.edge_map[edge.id] = edge
 
     def nodes(self):
         return self.node_map.values()
@@ -161,19 +201,32 @@ class TensorNetwork:
         for p in l_node.get_left_plugs():
             plug: Plug = p
             lp: Plug = plug.edge.left_plug
+            self.edge_map.pop(plug.edge.id)
             plug.edge.detach()
             left_map[lp.j] = lp
+        for p in l_node.get_right_plugs():
+            self.edge_map.pop(p.edge.id)
         for p in r_node.get_right_plugs():
             plug: Plug = p
             rp: Plug = plug.edge.right_plug
+            self.edge_map.pop(plug.edge.id)
             plug.edge.detach()
             right_map[rp.j] = rp
         for j, lp in left_map.items():
             rp = right_map[j]
-            self.edges.append(Edge(lp, rp))
+            self.add_edge(lp, rp)
         self.node_map.pop(l_node.id)
         self.node_map.pop(r_node.id)
-
+        members = []
+        group_id = l_node.group_id
+        for n in self.group_map[group_id]:
+            if n.id == l_node.id or n.id == r_node.id:
+                continue
+            members.append(n)
+        if len(members) == 0:
+            self.group_map.pop(group_id)
+        else:
+            self.group_map[group_id] = members
 
     def transpile(self):
         nodes = sorted(self.nodes(), key=lambda n: n.get_location().x)
@@ -185,7 +238,7 @@ class TensorNetwork:
                     right = n2.get_connectable(plug)
                     if right is not None:
                         edge = Edge(plug, right)
-                        self.edges.append(edge)
+                        self.edge_map[edge.id] = edge
                         break
 
     def draw(self, grid_width=1, space=0.3, ax=None):
@@ -231,12 +284,6 @@ class TensorNetworks:
         for i, coeff in enumerate(self.coefficients):
             ax = fig.add_subplot(length, length, i + 1)
             self.networks[i].draw(ax=ax)
-
-
-#
-# class HaarIntegration:
-#     def integrate(self, networks: TensorNetworks) -> TensorNetworks:
-#         for network in networks:
 
 
 class Circuit:
@@ -292,10 +339,10 @@ class Circuit:
                     t = Type.UNINTEGRABLE_UNITARY
                 result.add_node(Gate(loc, gate.group_id, t))
             else:
-                result.add_node(gate.copy(loc))
-        o = self.observable.copy(Location(self.observable.get_location().x,
-                                          self.observable.get_location().y_start + y_offset,
-                                          self.observable.get_location().y_end + y_offset))
+                result.add_node(gate.copy_to(loc))
+        o = self.observable.copy_to(Location(self.observable.get_location().x,
+                                             self.observable.get_location().y_start + y_offset,
+                                             self.observable.get_location().y_end + y_offset))
         result.add_node(o)
         offset = self.observable.get_location().x * 2
         for gate in reversed(self.gates):
@@ -310,24 +357,41 @@ class Circuit:
             else:
                 g = gate.conjugate()
                 g.location = loc
-                result.add_node(g.copy(loc))
+                result.add_node(g.copy_to(loc))
         return result
+
+
+class HaarIntegration:
+    def integrate(self, networks: TensorNetworks) -> TensorNetworks:
+        for i, n in enumerate(networks.networks):
+            coeff = networks.coefficients[i]
+            network: TensorNetwork = n
+            self.step(coeff, network)
+
+    def step(self, coeff, network) -> TensorNetworks:
+        network.reduce()
+        for g_id, gates in sorted(network.group_map.items(), reverse=True):
+            break
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     network = Circuit(4)
-    network.add_gate(Gate(Location(0, 0, 3), "0", Type.INITIAL))
-    network.add_gate(Gate(Location(1, 0, 1), "a", Type.UNITARY))
-    network.add_gate(Gate(Location(1, 2, 3), "b", Type.UNITARY))
-    network.add_gate(Gate(Location(2, 0, 0), "c", Type.UNITARY))
-    network.add_gate(Gate(Location(2, 1, 2), "d", Type.UNITARY))
-    network.add_gate(Gate(Location(2, 3, 3), "d", Type.UNITARY))
+    network.add_gate(Gate(Location(0, 0, 3), Location(0, 0, 3).id(), Type.INITIAL))
+    network.add_gate(Gate(Location(1, 0, 1), Location(1, 0, 1).id(), Type.UNITARY))
+    network.add_gate(Gate(Location(1, 2, 3), Location(1, 2, 3).id(), Type.UNITARY))
+    network.add_gate(Gate(Location(2, 0, 0), Location(2, 0, 0).id(), Type.UNITARY))
+    network.add_gate(Gate(Location(2, 1, 2), Location(2, 1, 2).id(), Type.UNITARY))
+    network.add_gate(Gate(Location(2, 3, 3), Location(2, 3, 3).id(), Type.UNITARY))
     network.add_observable(Gate(Location(3, 1, 1), "", Type.OBSERVABLE))
     tn = network.to_grad_var("a", 1)
     for net in tn.networks:
         net.reduce()
-    tn.draw()
+    tnn: TensorNetwork = tn.networks[0].copy()
+    tnn.draw()
+    # integral = HaarIntegration()
+    # integral.integrate(tn)
+    # tn.draw()
     plt.show()
     #
     # network = TensorNetwork()
