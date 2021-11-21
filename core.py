@@ -14,6 +14,9 @@ class Node:
 
 class Edge:
     def __init__(self, left_plug, right_plug):
+        if left_plug.direction == Direction.Left \
+                or right_plug.direction == Direction.Right:
+            raise InvalidVariableException("The directions of plugs are invalid.")
         left_plug.edge = self
         right_plug.edge = self
         self.left_plug = left_plug
@@ -27,7 +30,11 @@ class Edge:
 
 class Factor(enum.Enum):
     D = "D"
+    D2 = "D^2"
+    D3 = "D^3"
+    D4 = "D^4"
     DF = "1/D"
+    MI = "-"
     G = "1/D^2-1"
     # D = 2^m
 
@@ -98,9 +105,15 @@ class GateUtil:
         return [y for y in range(gate.get_location().y_start, gate.get_location().y_end + 1)]
 
 
+class InvalidVariableException(Exception):
+    pass
+
+
 class PlugUtil:
     @classmethod
     def connected(cls, plug1, plug2):
+        if plug1.direction == Direction.Left or plug2.direction == Direction.Right:
+            raise InvalidVariableException("")
         if plug1.edge is None:
             return False
         if plug1.edge.right_plug == plug2:

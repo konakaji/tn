@@ -18,15 +18,15 @@ class Circuit:
         net1 = TensorNetwork(mhalf, self.b_height * 2 + 1, self.observable.get_location().x * 2 + 1)
         self._do_add_grad_avg(net1, grad_id)
         self._do_add_grad_avg(net1, grad_id, y_offset=self.b_height + 1)
-        result.add(-1, net1)
+        result.add(Coefficient([-1]), net1)
         net2 = TensorNetwork(mhalf, self.b_height * 2 + 1, self.observable.get_location().x * 2 + 1)
         self._do_add_grad_avg(net2, grad_id)
         self._do_add_grad_avg(net2, grad_id, dagger=True, y_offset=self.b_height + 1)
-        result.add(2, net2)
+        result.add(Coefficient([2]), net2)
         net3 = TensorNetwork(mhalf, self.b_height * 2 + 1, self.observable.get_location().x * 2 + 1)
         self._do_add_grad_avg(net3, grad_id, dagger=True)
         self._do_add_grad_avg(net3, grad_id, dagger=True, y_offset=self.b_height + 1)
-        result.add(-1, net3)
+        result.add(Coefficient([-1]), net3)
         for network in result.networks:
             network.transpile()
         return result
