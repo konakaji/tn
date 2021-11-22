@@ -142,14 +142,31 @@ class TwoHaarIntegration:
 class FourHaarIntegration:
     def __init__(self):
         self.integrators = [ParallelIntegrator(), ParallelIntegrator(True), CrossIntegrator(), CrossIntegrator(True)]
+        self.post_processors = []
 
     def integrate(self, network: TensorNetwork, g_id):
         results = []
-        for integrator in self.integrators:
+        hists = [Factor.HIST1, Factor.HIST2, Factor.HIST3, Factor.HIST4]
+        for index, integrator in enumerate(self.integrators):
             net = network.copy()
             factor, net = integrator.integrate(net, g_id)
+            factor.append(hists[index])
             results.append((factor, net))
+            for post_process in self.post_processors:
+                post_process.run(net)
         return results
+
+
+class PostProcess(ABC):
+    @abstractmethod
+    def run(self, network):
+        pass
+
+
+class DrawNetwork(PostProcess):
+    def run(self, network):
+        network.draw()
+        plt.show()
 
 
 class Integrator(ABC):

@@ -42,6 +42,10 @@ class Factor(enum.Enum):
     DF = ("1/D", 5, -1)
     MI = ("-", 6, 0)
     G = ("1/D^2-1", 7, 0)
+    HIST1 = ("H1", 1, 0)
+    HIST2 = ("H2", 2, 0)
+    HIST3 = ("H3", 3, 0)
+    HIST4 = ("H4", 4, 0)
 
     def __init__(self, label, id, d_count):
         self.label = label
