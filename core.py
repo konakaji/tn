@@ -6,12 +6,6 @@ import matplotlib.patches as patches
 import random
 
 
-class Node:
-    def __init__(self, n_qubit, id):
-        self.id = id
-        self.nqubit = n_qubit
-
-
 class Edge:
     def __init__(self, left_plug, right_plug):
         if left_plug.direction == Direction.Left \
@@ -19,9 +13,20 @@ class Edge:
             raise InvalidVariableException("The directions of plugs are invalid.")
         left_plug.edge = self
         right_plug.edge = self
-        self.left_plug = left_plug
-        self.right_plug = right_plug
-        self.id = random.randint(0, 100000000)
+        self.left_plug: Plug = left_plug
+        self.right_plug: Plug = right_plug
+        self.id = self.__hash__()
+
+    def __hash__(self) -> int:
+        if self.left_plug is None or self.right_plug is None:
+            return 0
+        return 31 + 13 * self.left_plug.__hash__() \
+               + 17 * self.right_plug.__hash__()
+
+    def __eq__(self, o: object) -> bool:
+        if type(o) is not Edge:
+            return False
+        return self.__hash__() == o.__hash__()
 
     def detach(self):
         self.left_plug.edge = None
@@ -29,38 +34,54 @@ class Edge:
 
 
 class Factor(enum.Enum):
-    D = "D"
-    D2 = "D^2"
-    D3 = "D^3"
-    D4 = "D^4"
-    DF = "1/D"
-    MI = "-"
-    G = "1/D^2-1"
     # D = 2^m
+    D = ("D", 1, 1)
+    D2 = ("D^2", 2, 2)
+    D3 = ("D^3", 3, 3)
+    D4 = ("D^4", 4, 4)
+    DF = ("1/D", 5, -1)
+    MI = ("-", 6, 0)
+    G = ("1/D^2-1", 7, 0)
+
+    def __init__(self, label, id, d_count):
+        self.label = label
+        self.id = id
+        self.d_count = d_count
 
 
 class Direction(enum.Enum):
-    Left = "left"
-    Right = "right"
+    Left = ("left", 23)
+    Right = ("right", 31)
+
+    def __init__(self, n, hash):
+        self.n = n
+        self.hash = hash
 
     def invert(self):
         if self == Direction.Left:
             return Direction.Right
         return Direction.Left
 
+    def __hash__(self):
+        return self.hash
+
 
 class Coefficient:
-    def __init__(self, factors):
+    def __init__(self, digit, factors):
         self.factors = factors
+        self.digit = digit
 
     def add(self, factor):
         self.factors.append(factor)
+
+    def multiply(self, v):
+        self.digit = self.digit * v
 
     def extend(self, factors):
         self.factors.extend(factors)
 
     def copy(self):
-        result = Coefficient([])
+        result = Coefficient(self.digit, [])
         for f in self.factors:
             result.add(f)
         return result
@@ -74,13 +95,29 @@ class Plug:
         self.node_id = node_id
         self.id = random.randint(0, 10000000)
 
+    def __hash__(self) -> int:
+        return 13 * (self.j + 1) + 17 * self.node_id + self.direction.__hash__()
+
+    def __eq__(self, o: object) -> bool:
+        if type(o) is not Plug:
+            return False
+        return self.__hash__() == o.__hash__()
+
 
 class Type(enum.Enum):
-    UNITARY = "U"
-    UNINTEGRABLE_UNITARY = "Uw"
-    OBSERVABLE = "O"
-    GRAD = "W"  # the node where the gradient is computed
-    INITIAL = "|0>"
+    UNITARY = ("U", 1)
+    UNINTEGRABLE_UNITARY = ("W_", 2)
+    OBSERVABLE = ("O", 3)
+    GRAD = ("W", 4)  # the node where the gradient is computed
+    UrWUr = ("UrWUr", 5)
+    INITIAL = ("|0>", 6)
+
+    def __init__(self, n, hash):
+        self.n = n
+        self.hash = hash
+
+    def __hash__(self):
+        return self.hash
 
 
 class Location:
@@ -94,6 +131,14 @@ class Location:
 
     def id(self):
         return self.x + 1 / (self.y_start + 1)
+
+    def __hash__(self) -> int:
+        return 13 * self.x + 17 * self.y_start + 31 * self.y_end
+
+    def __eq__(self, o: object) -> bool:
+        if type(o) is not Location:
+            return False
+        return self.__hash__() == o.__hash__()
 
     def __repr__(self) -> str:
         return "({}, {}-{})".format(self.x, self.y_start, self.y_end)
@@ -122,14 +167,12 @@ class PlugUtil:
 
 
 class Gate:
-    def __init__(self, location: Location, group_id, t: Type, id=None, dagger=False):
+    def __init__(self, location: Location, group_id, t: Type, dagger=False):
         self._location = location
         self.group_id = group_id
         self.type = t
-        if id is None:
-            id = random.randint(0, 1000000000)
-        self.id = id
         self.dagger = dagger
+        self.id = self.__hash__()
         self.plugs = {Direction.Left: self._left_plugs(),
                       Direction.Right: self._right_plugs()}
 
@@ -137,7 +180,7 @@ class Gate:
         return Gate(loc, self.group_id, self.type, dagger=self.dagger)
 
     def copy(self):
-        return Gate(self.get_location().copy(), self.group_id, self.type, self.id, self.dagger)
+        return Gate(self.get_location().copy(), self.group_id, self.type, self.dagger)
 
     def get_location(self):
         return self._location.copy()
@@ -175,6 +218,18 @@ class Gate:
             return []
         return [Plug(j, Direction.Right, self.id) for j in range(self._location.y_start, self._location.y_end + 1)]
 
+    def __hash__(self) -> int:
+        dag = 0
+        if self.dagger:
+            dag = 1
+        return 13 * self._location.__hash__() + 17 * self.group_id.__hash__() \
+               + 37 * dag + 41 * self.type.__hash__()
+
+    def __eq__(self, o: object) -> bool:
+        if type(o) is not Gate:
+            return False
+        return self.__hash__() == o.__hash__()
+
     def __repr__(self) -> str:
         dagger = ""
         if self.dagger:
@@ -211,6 +266,17 @@ class TensorNetwork:
                     rp = p
             result.add_edge(lp, rp)
         return result
+
+    def change_node(self, node: Gate, t: Type):
+        self.node_map.pop(node.id)
+        node.type = t
+        node.id = node.__hash__()
+        left_plugs = node.get_left_plugs()
+        right_plugs = node.get_right_plugs()
+        for p, p2 in zip(left_plugs, right_plugs):
+            p.node_id = node.id
+            p2.node_id = node.id
+        self.node_map[node.id] = node
 
     def add_node(self, gate: Gate):
         self.node_map[gate.id] = gate
@@ -256,6 +322,8 @@ class TensorNetwork:
     def remove_simple(self, node: Gate):
         self.node_map.pop(node.id)
         members = []
+        if node.group_id not in self.group_map:
+            return
         for n in self.group_map[node.group_id]:
             if n.id == node.id:
                 continue
@@ -340,6 +408,21 @@ class TensorNetwork:
         pos = nx.get_node_attributes(netx, 'pos')
         nx.draw_networkx(netx, pos, node_size=10,
                          with_labels=False, connectionstyle="arc3,rad=0.1")
+
+    def __eq__(self, o: object) -> bool:
+        if type(o) is not TensorNetwork:
+            return False
+        return self.__hash__() == o.__hash__()
+
+    def __hash__(self):
+        result = 0
+        for i, item in enumerate(sorted(self.node_map.items())):
+            k, gate = item
+            result = result + gate.__hash__()
+        for i, item in enumerate(sorted(self.edge_map.items())):
+            k, edge = item
+            result = result + edge.__hash__() * (i + 1)
+        return result
 
 
 class TensorNetworks:

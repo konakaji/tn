@@ -2,13 +2,67 @@ from core import *
 from abc import ABC, abstractmethod
 
 
-class HaarIntegration:
+class TNComputation(ABC):
+    @abstractmethod
+    def compute(self, networks: TensorNetworks) -> TensorNetworks:
+        return networks
+
+
+class Multiply(TNComputation):
+    def __init__(self, type_left: Type, type_right: Type, left_dagger, right_dagger,
+                 type_result: Type, result_dagger):
+        self.type_left = type_left
+        self.type_right = type_right
+        self.left_dagger = left_dagger
+        self.right_dagger = right_dagger
+        self.type_result = type_result
+        self.result_dagger = result_dagger
+
+    def compute(self, networks: TensorNetworks):
+        for network in networks.networks:
+            self.do_compute(network)
+        return networks
+
+    def do_compute(self, network: TensorNetwork):
+        pairs = []
+        for n in network.nodes():
+            n: Gate = n
+            if n.type != self.type_left or n.dagger != self.left_dagger:
+                continue
+            n2 = None
+            for p in n.get_right_plugs():
+                node = network.node_map[p.edge.right_plug.node_id]
+                if n2 is not None and n2 != node:
+                    n2 = None
+                    break
+                if node.type != self.type_right or node.dagger != self.right_dagger:
+                    break
+                n2 = node
+            if n2 is not None:
+                pairs.append((n, n2))
+        for n, n2 in pairs:
+            p_map = {}
+            for i, lp in enumerate(n.get_right_plugs()):
+                network.remove_edge(lp)
+                p_map[i] = lp
+            for lp in n2.get_left_plugs():
+                network.remove_edge(lp)
+            for i, p in enumerate(n2.get_right_plugs()):
+                p: Plug = p
+                rp = p.edge.right_plug
+                network.remove_edge(p)
+                network.add_edge(p_map[i], rp)
+            network.remove_simple(n2)
+            network.change_node(n, self.type_result)
+
+
+class HaarIntegration(TNComputation):
     def __init__(self, n_steps):
         self.two_haar = TwoHaarIntegration()
         self.four_haar = FourHaarIntegration()
         self.n_steps = n_steps
 
-    def integrate(self, networks: TensorNetworks) -> TensorNetworks:
+    def compute(self, networks: TensorNetworks) -> TensorNetworks:
         result = networks
         for s in range(self.n_steps):
             result = self.step(result)

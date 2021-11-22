@@ -1,5 +1,5 @@
 from unittest import TestCase
-from integral import *
+from computation import *
 from core import *
 
 

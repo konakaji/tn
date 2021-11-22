@@ -49,3 +49,22 @@ def _two_loop(self, network, all_pairs):
 #         n_loop = n_loop + 1
 #         indices.add(i)
 #     return indices, n_loop
+
+    for n1, n2 in zip(sorted(ns[0].node_map.items()), sorted(ns[1].node_map.items())):
+        if n1.__hash__() != n2.__hash__():
+            print("hoge")
+    for i1, i2 in zip(sorted(ns[0].edge_map.items()), sorted(ns[1].edge_map.items())):
+        n = i1[1]
+        n2 = i2[1]
+        if n.__hash__() != n2.__hash__():
+            print(n.__hash__(), n2.__hash__())
+            e: Edge = n
+            e2: Edge = n2
+            if e.left_plug.__hash__() != e2.left_plug.__hash__():
+                print("left")
+                print(ns[0].node_map[ns[0].node_map[e.left_plug.node_id].id]._location)
+                print(ns[1].node_map[ns[1].node_map[e2.left_plug.node_id].id]._location)
+            if e.right_plug.node_id.__hash__() != e2.right_plug.node_id.__hash__():
+                print("right")
+                print(ns[0].node_map[ns[0].node_map[e.right_plug.node_id].id]._location)
+                print(ns[1].node_map[ns[1].node_map[e2.right_plug.node_id].id]._location)
