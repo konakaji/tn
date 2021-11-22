@@ -63,18 +63,12 @@ class FactorMerger:
                 excludes.add(f2)
                 f.append(f2)
 
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    network = Circuit(4)
-    network.add_gate(Gate(Location(0, 0, 3), Location(0, 0, 3).id(), Type.INITIAL))
-    network.add_gate(Gate(Location(1, 0, 1), Location(1, 0, 1).id(), Type.UNITARY))
-    network.add_gate(Gate(Location(1, 2, 3), Location(1, 2, 3).id(), Type.UNITARY))
-    network.add_gate(Gate(Location(2, 0, 0), Location(2, 0, 0).id(), Type.UNITARY))
-    network.add_gate(Gate(Location(2, 1, 2), Location(2, 1, 2).id(), Type.UNITARY))
-    network.add_gate(Gate(Location(2, 3, 3), Location(2, 3, 3).id(), Type.UNITARY))
-    network.add_observable(Gate(Location(3, 1, 1), "", Type.OBSERVABLE))
+    network = ALTGenerator.generate(2, 3, 0, 1)
     tn = network.to_grad_var(Location(1, 0, 1).id(), 1)
-    computations = [HaarIntegration(2),
+    computations = [HaarIntegration(4),
                     Multiply(Type.GRAD, Type.UNINTEGRABLE_UNITARY, False, True, Type.UrWUr, False),
                     Multiply(Type.UNINTEGRABLE_UNITARY, Type.GRAD, False, True, Type.UrWUr, False)]
     result = tn
@@ -94,4 +88,6 @@ if __name__ == '__main__':
             if f.approximate_d_count() == -2:
                 ns.append(network)
             fs.append(f)
+        network.draw()
+        plt.show()
         print(network.__hash__(), FactorMerger.merge(fs))

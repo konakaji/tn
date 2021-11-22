@@ -1,6 +1,33 @@
 from core import *
 
 
+class ALTGenerator:
+    @classmethod
+    def generate(cls, n_blk, depth, obs_stt, obs_end):
+        result = Circuit(2 * n_blk)
+        result.add_gate(Gate(Location(0, 0, 2 * n_blk - 1),
+                             Location(0, 0, 2 * n_blk - 1).id(), Type.INITIAL))
+        for l in range(depth):
+            if l % 2 == 0:
+                for j in range(n_blk):
+                    loc = Location(l + 1, 2 * j, 2 * j + 1)
+                    result.add_gate(
+                        Gate(loc, loc.id(), Type.UNITARY))
+            if l % 2 == 1:
+                loc = Location(l + 1, 0, 0)
+                result.add_gate(Gate(loc, loc.id(), Type.UNITARY))
+                for j in range(n_blk - 1):
+                    loc = Location(l + 1, 2 * j + 1, 2 * j + 2)
+                    result.add_gate(
+                        Gate(loc, loc.id(), Type.UNITARY))
+                loc = Location(l + 1, 2 * n_blk - 1, 2 * n_blk - 1)
+                result.add_gate(Gate(loc, loc.id(), Type.UNITARY))
+        loc = Location(depth + 1, obs_stt, obs_end)
+        result.add_observable(
+            Gate(loc, "", Type.OBSERVABLE))
+        return result
+
+
 class Circuit:
     def __init__(self, b_height):
         self.gates = []

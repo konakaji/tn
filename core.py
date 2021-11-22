@@ -234,7 +234,7 @@ class Gate:
         dagger = ""
         if self.dagger:
             dagger = "†"
-        return "{}{}".format(self.type.value, dagger)
+        return "{}{}".format(self.type.n, dagger)
 
 
 class TensorNetwork:
@@ -336,22 +336,22 @@ class TensorNetwork:
     def remove(self, l_node: Gate, r_node: Gate):
         left_map = {}
         right_map = {}
-        for p in l_node.get_left_plugs():
+        for i, p in enumerate(l_node.get_left_plugs()):
             plug: Plug = p
             if plug.edge is None:
                 continue
             lp: Plug = plug.edge.left_plug
             self.remove_edge(plug)
-            left_map[lp.j] = lp
+            left_map[i] = lp
         for p in l_node.get_right_plugs():
             self.remove_edge(p)
-        for p in r_node.get_right_plugs():
+        for i, p in enumerate(r_node.get_right_plugs()):
             plug: Plug = p
             if plug.edge is None:
                 continue
             rp: Plug = plug.edge.right_plug
             self.remove_edge(plug)
-            right_map[rp.j] = rp
+            right_map[i] = rp
         for j, lp in left_map.items():
             rp = right_map[j]
             self.add_edge(lp, rp)

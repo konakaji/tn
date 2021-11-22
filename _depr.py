@@ -68,3 +68,12 @@ def _two_loop(self, network, all_pairs):
                 print("right")
                 print(ns[0].node_map[ns[0].node_map[e.right_plug.node_id].id]._location)
                 print(ns[1].node_map[ns[1].node_map[e2.right_plug.node_id].id]._location)
+
+    # network = Circuit(4)
+    # network.add_gate(Gate(Location(0, 0, 3), Location(0, 0, 3).id(), Type.INITIAL))
+    # network.add_gate(Gate(Location(1, 0, 1), Location(1, 0, 1).id(), Type.UNITARY))
+    # network.add_gate(Gate(Location(1, 2, 3), Location(1, 2, 3).id(), Type.UNITARY))
+    # network.add_gate(Gate(Location(2, 0, 0), Location(2, 0, 0).id(), Type.UNITARY))
+    # network.add_gate(Gate(Location(2, 1, 2), Location(2, 1, 2).id(), Type.UNITARY))
+    # network.add_gate(Gate(Location(2, 3, 3), Location(2, 3, 3).id(), Type.UNITARY))
+    # network.add_observable(Gate(Location(3, 1, 1), "", Type.OBSERVABLE))
