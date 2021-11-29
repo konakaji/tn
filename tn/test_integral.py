@@ -1,6 +1,6 @@
 from unittest import TestCase
-from computation import *
-from core import *
+from tn.computation import *
+from tn.core import *
 
 
 class TestPathUtil(TestCase):

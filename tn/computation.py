@@ -1,4 +1,4 @@
-from core import *
+from tn.core import *
 from abc import ABC, abstractmethod
 
 
