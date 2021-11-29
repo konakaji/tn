@@ -177,7 +177,7 @@ class Integrator(ABC):
         u1, udagger1, u2, udagger2 = network.group_map[g_id]
         ys1 = GateUtil.get_ys(u1)
         ys2 = GateUtil.get_ys(u2)
-        factors = []
+        factors = self.initial_factors(len(ys1))
         for y1, y2 in zip(ys1, ys2):
             l1 = u1.get_plug(Direction.Left, y1)
             r1 = u1.get_plug(Direction.Right, y1)
@@ -211,7 +211,7 @@ class Integrator(ABC):
         # pairs that connects after haar integration
         final_pairs, n_loop = PathUtil.find_outside_pairs(haar_pairs)
         map = {1: Factor.D, 2: Factor.D2, 3: Factor.D3, 4: Factor.D4}
-        factors = self.initial_factors()
+        factors = []
         if n_loop > 0:
             factors.append(map[n_loop])
         # remove edges in all plugs in integrated unitaries
@@ -228,7 +228,7 @@ class Integrator(ABC):
         return []
 
     @abstractmethod
-    def initial_factors(self):
+    def initial_factors(self, num_plugs):
         return []
 
 
@@ -313,13 +313,21 @@ class ParallelIntegrator(Integrator):
     def get_haar_pairs(self, l1: Plug, l1d: Plug, r1: Plug, r1d: Plug, l2: Plug, l2d: Plug, r2: Plug, r2d: Plug):
         return [(l1, r1d), (l1d, r1), (l2, r2d), (l2d, r2)]
 
-    def initial_factors(self):
-        return [Factor.G]
+    def initial_factors(self, num_plugs):
+        if num_plugs == 1:
+            return [Factor.G]
+        elif num_plugs == 2:
+            return [Factor.G2]
+        raise InvalidVariableException("three plug integration is not implemented")
 
 
 class CrossIntegrator(Integrator):
     def get_haar_pairs(self, l1: Plug, l1d: Plug, r1: Plug, r1d: Plug, l2: Plug, l2d: Plug, r2: Plug, r2d: Plug):
         return [(l1, r1d), (l1d, r2), (l2, r2d), (l2d, r1)]
 
-    def initial_factors(self):
-        return [Factor.G, Factor.DF, Factor.MI]
+    def initial_factors(self, num_plugs):
+        if num_plugs == 1:
+            return [Factor.G, Factor.DF, Factor.MI]
+        elif num_plugs == 2:
+            return [Factor.G2, Factor.DF2, Factor.MI]
+        raise InvalidVariableException("three plug integration is not implemented")

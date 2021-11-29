@@ -1,31 +1,69 @@
 from core import *
+from abc import ABC, abstractmethod
+
+
+class LayerAppender(ABC):
+    @abstractmethod
+    def is_target(self, l_id):
+        pass
+
+    @abstractmethod
+    def add(self, result, l_id, n_blk):
+        pass
+
+
+class TensorEncoderAppender(LayerAppender):
+    def __init__(self, targets):
+        self.targets = targets
+
+    def is_target(self, l_id):
+        return l_id in self.targets
+
+    def add(self, result, l_id, n_blk):
+        for j in range(2 * n_blk):
+            loc = Location(l_id + 1, j, j)
+            result.add_gate(Gate(loc, loc.id(), Type.ENC))
 
 
 class ALTGenerator:
     @classmethod
-    def generate(cls, n_blk, depth, obs_stt, obs_end):
+    def generate(cls, n_blk, depth, obs_stt, obs_end, layer_appender: LayerAppender = None, revert=False):
         result = Circuit(2 * n_blk)
         result.add_gate(Gate(Location(0, 0, 2 * n_blk - 1),
                              Location(0, 0, 2 * n_blk - 1).id(), Type.INITIAL))
+        sign = 0
+        if revert:
+            offset = 1
         for l in range(depth):
-            if l % 2 == 0:
-                for j in range(n_blk):
-                    loc = Location(l + 1, 2 * j, 2 * j + 1)
-                    result.add_gate(
-                        Gate(loc, loc.id(), Type.UNITARY))
-            if l % 2 == 1:
-                loc = Location(l + 1, 0, 0)
-                result.add_gate(Gate(loc, loc.id(), Type.UNITARY))
-                for j in range(n_blk - 1):
-                    loc = Location(l + 1, 2 * j + 1, 2 * j + 2)
-                    result.add_gate(
-                        Gate(loc, loc.id(), Type.UNITARY))
-                loc = Location(l + 1, 2 * n_blk - 1, 2 * n_blk - 1)
-                result.add_gate(Gate(loc, loc.id(), Type.UNITARY))
+            if layer_appender is not None and layer_appender.is_target(l):
+                layer_appender.add(result, l, n_blk)
+                continue
+            if (l + sign) % 2 == 0:
+                cls.add_even_layer(result, l, n_blk)
+            elif (l + sign) % 2 == 1:
+                cls.add_odd_layer(result, l, n_blk)
         loc = Location(depth + 1, obs_stt, obs_end)
         result.add_observable(
             Gate(loc, "", Type.OBSERVABLE))
         return result
+
+    @classmethod
+    def add_even_layer(cls, result, l_id, n_blk):
+        for j in range(n_blk):
+            loc = Location(l_id + 1, 2 * j, 2 * j + 1)
+            result.add_gate(
+                Gate(loc, loc.id(), Type.UNITARY))
+
+    @classmethod
+    def add_odd_layer(cls, result, l_id, n_blk):
+        loc = Location(l_id + 1, 0, 0)
+        result.add_gate(Gate(loc, loc.id(), Type.UNITARY))
+        for j in range(n_blk - 1):
+            loc = Location(l_id + 1, 2 * j + 1, 2 * j + 2)
+            result.add_gate(
+                Gate(loc, loc.id(), Type.UNITARY))
+        loc = Location(l_id + 1, 2 * n_blk - 1, 2 * n_blk - 1)
+        result.add_gate(Gate(loc, loc.id(), Type.UNITARY))
 
 
 class Circuit:

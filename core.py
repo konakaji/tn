@@ -40,12 +40,14 @@ class Factor(enum.Enum):
     D3 = ("D^3", 3, 3)
     D4 = ("D^4", 4, 4)
     DF = ("1/D", 5, -1)
+    DF2 = ("1/D^2", 5, -2)
     MI = ("-", 6, 0)
     G = ("1/D^2-1", 7, 0)
-    HIST1 = ("H1", 1, 0)
-    HIST2 = ("H2", 2, 0)
-    HIST3 = ("H3", 3, 0)
-    HIST4 = ("H4", 4, 0)
+    G2 = ("1/D^4-1", 8, 0)
+    HIST1 = ("H1", 9, 0)
+    HIST2 = ("H2", 10, 0)
+    HIST3 = ("H3", 11, 0)
+    HIST4 = ("H4", 12, 0)
 
     def __init__(self, label, id, d_count):
         self.label = label
@@ -115,6 +117,7 @@ class Type(enum.Enum):
     GRAD = ("W", 4)  # the node where the gradient is computed
     UrWUr = ("UrWUr", 5)
     INITIAL = ("|0>", 6)
+    ENC = ("|R(x)>", 7)
 
     def __init__(self, n, hash):
         self.n = n
